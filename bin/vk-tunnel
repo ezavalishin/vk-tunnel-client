@@ -331,7 +331,7 @@ async function run() {
 
           const params = {
             webview: cfg.tunnelUrlFromAPI,
-            name: cfg.testing_group,
+            name: cfgGroup.group_name,
             user_ids: cfgGroup.user_id,
             platforms:"web,mvk,mobile"
           };
@@ -513,15 +513,19 @@ async function run() {
 }
 
 process.on('SIGINT', () => {
-  serviceApi('apps.removeTestingGroup', {
-    group_id: cfgGroup.groupId
-  }).then((r) => {
+  if (cfgGroup.groupId) {
+    serviceApi('apps.removeTestingGroup', {
+      group_id: cfgGroup.groupId
+    }).then((r) => {
       console.log(`group ${cfgGroup.group_name} removed`);
       process.exit(0);
-  }).catch((e) => {
-    console.log(e);
+    }).catch((e) => {
+      console.log(e);
+      process.exit(0);
+    })
+  } else {
     process.exit(0);
-  })
+  }
 });
 
 run().then().catch((e) => { logger.error(e); });

@@ -1,7 +1,7 @@
 {
   "name": "@ezavalishin/vk-tunnel-group",
   "license": "MIT",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "bin": {
     "vk-tunnel-group": "./bin/vk-tunnel"
   },
