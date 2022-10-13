@@ -1,16 +1,16 @@
 {
-  "name": "@vkontakte/vk-tunnel",
+  "name": "@ezavalishin/vk-tunnel-group",
   "license": "MIT",
   "version": "0.1.2",
   "bin": {
-    "vk-tunnel": "./bin/vk-tunnel"
+    "vk-tunnel-group": "./bin/vk-tunnel"
   },
   "scripts": {
     "tunnel": "node bin/vk-tunnel"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vkcom/vk-tunnel-client.git"
+    "url": "https://github.com/ezavalishin/vk-tunnel-client"
   },
   "dependencies": {
     "axios": "^0.21.1",

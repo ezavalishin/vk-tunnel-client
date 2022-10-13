@@ -28,6 +28,12 @@ if (fs.existsSync('./vk-tunnel-config.json')) {
 }
 const cfg = configJSON || {};
 
+let configGroupJSON = {};
+if (fs.existsSync('./vk-tunnel-group-config.json')) {
+  configGroupJSON = require('require-module')('./vk-tunnel-group-config.json');
+}
+const cfgGroup = configGroupJSON || {};
+
 const TUNNEL_APP_ID = 7357112;
 const CODE_SUCCESS = 200;
 const CLIENT_VERSION = 1;
@@ -98,9 +104,9 @@ async function auth() {
   }
 }
 
-async function api(method, params) {
+async function api(method, params, access_token = cfg.access_token) {
   params['v'] = API_VERSION;
-  params['access_token'] = cfg.access_token;
+  params['access_token'] = access_token;
 
   if (!cfg.access_token) {
     logger.error('access_token is missing');
@@ -111,13 +117,14 @@ async function api(method, params) {
   try {
     const query = await fetch(API_HOST + method + '?' + queryParams);
     const res = await query.json();
+
     if (res.error !== void 0) {
       if (res.error.error_code === OAUTH_USER_REVOKE_TOKEN_ERROR) {
         vault.delete('access_token');
         vault.delete('user_id');
+        logger.error(chalk.red(res.error.error_code + ': ' + res.error.error_msg));
+        logger.warn(chalk.yellow('Previous settings has been removed.'));
       }
-      logger.error(chalk.red(res.error.error_code + ': ' + res.error.error_msg));
-      logger.warn(chalk.yellow('Previous settings has been removed.'));
       return false;
     }
 
@@ -127,6 +134,29 @@ async function api(method, params) {
   } catch (e) {
     logger.error(e);
   }
+}
+
+async function serviceApi(method, params, access_token = cfgGroup.service_token) {
+  params['v'] = API_VERSION;
+  params['access_token'] = access_token;
+
+  if (!cfg.access_token) {
+    logger.error('service token is missing');
+    return false;
+  }
+
+  const queryParams = querystring.stringify(params);
+    const query = await fetch(API_HOST + method + '?' + queryParams);
+    const res = await query.json();
+
+    if (res.error !== void 0) {
+      throw 'group api error: ' . res.error.error_msg;
+    }
+
+    if (res.response !== void 0) {
+      return res.response;
+    }
+
 }
 
 async function getTunnelToken() {
@@ -286,6 +316,44 @@ async function run() {
 
     console.log('open: ' + cfg.tunnelUrlFromAPI);
 
+    if (cfgGroup.service_token) {
+      if (!cfgGroup.user_id || !cfgGroup.group_name) {
+        logger.warn('user_id or group_name not found in vk-tunnel-group-config.json');
+      } else {
+        serviceApi('apps.getTestingGroups', {}).then((r) => {
+          let groupId = undefined;
+
+          r.forEach((group) => {
+            if (group.name === cfg.testing_group) {
+              groupId = group.group_id;
+            }
+          });
+
+          const params = {
+            webview: cfg.tunnelUrlFromAPI,
+            name: cfg.testing_group,
+            user_ids: cfgGroup.user_id,
+            platforms:"web,mvk,mobile"
+          };
+
+          if (groupId) {
+            params['group_id'] = groupId;
+          }
+
+          serviceApi('apps.updateMetaForTestingGroup', params).then((r) => {
+            cfgGroup.groupId = r.group_id;
+
+            console.log(`group ${cfgGroup.group_name} updated`);
+          }).catch((e) => {
+            console.log(e);
+          })
+
+        }).catch((e) => {
+          console.log(e);
+        })
+      }
+    }
+
     connection.on('close', (code) => {
       logger.info('disconnected, code:', code);
     });
@@ -443,5 +511,17 @@ async function run() {
   });
 
 }
+
+process.on('SIGINT', () => {
+  serviceApi('apps.removeTestingGroup', {
+    group_id: cfgGroup.groupId
+  }).then((r) => {
+      console.log(`group ${cfgGroup.group_name} removed`);
+      process.exit(0);
+  }).catch((e) => {
+    console.log(e);
+    process.exit(0);
+  })
+});
 
 run().then().catch((e) => { logger.error(e); });
